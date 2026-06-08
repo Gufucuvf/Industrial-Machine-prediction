@@ -1,1 +1,1 @@
-# Indus-trial-Machine-prediction
+# Industrial-Machine-prediction
