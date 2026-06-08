@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PredX - Equipment Failure Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#1a1a18;--paper:#f0ede6;--rule:#1a1a18;
+  --yellow:#f5c800;--red:#d62b2b;--orange:#e8621a;--green:#2d7a2d;
+  --muted:#6b6b62;--tape:#e8e3d9;
+}
+body{background:var(--paper);color:var(--ink);font-family:'Barlow Condensed',sans-serif;min-height:100vh}
+.mono{font-family:'Share Tech Mono',monospace}
+
+.topbar{background:var(--ink);color:var(--paper);display:flex;align-items:stretch;border-bottom:4px solid var(--yellow)}
+.tb-logo{background:var(--yellow);color:var(--ink);padding:12px 20px;font-size:22px;font-weight:800;letter-spacing:-1px;display:flex;align-items:center;gap:8px;text-transform:uppercase;flex-shrink:0}
+.tb-title{padding:12px 20px;font-size:13px;font-weight:600;letter-spacing:3px;text-transform:uppercase;display:flex;align-items:center;color:#aaa8a0}
+.tb-right{margin-left:auto;display:flex;align-items:stretch}
+.tb-tag{padding:0 18px;font-family:'Share Tech Mono',monospace;font-size:11px;display:flex;align-items:center;border-left:1px solid #333;color:#aaa8a0;white-space:nowrap}
+.tb-tag.alert-tag{background:var(--red);color:#fff;font-weight:700;font-size:12px;display:none}
+.tb-tag.alert-tag.show{display:flex}
+
+.upload-section{padding:32px 28px;border-bottom:2px solid var(--rule)}
+.upload-box{border:3px dashed var(--rule);padding:36px;text-align:center;cursor:pointer;position:relative;background:var(--tape);transition:background .15s}
+.upload-box:hover,.upload-box.dragover{background:var(--yellow);border-style:solid}
+.upload-box input{display:none}
+.upload-label{font-size:28px;font-weight:800;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px}
+.upload-sub{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--muted)}
+.corner{position:absolute;width:16px;height:16px;border-color:var(--rule);border-style:solid}
+.corner.tl{top:8px;left:8px;border-width:2px 0 0 2px}
+.corner.tr{top:8px;right:8px;border-width:2px 2px 0 0}
+.corner.bl{bottom:8px;left:8px;border-width:0 0 2px 2px}
+.corner.br{bottom:8px;right:8px;border-width:0 2px 2px 0}
+
+.progress-bar-wrap{padding:24px 28px;border-bottom:2px solid var(--rule);display:none}
+.progress-bar-wrap.active{display:block}
+.prog-label{font-family:'Share Tech Mono',monospace;font-size:12px;margin-bottom:8px;color:var(--muted)}
+.prog-outer{height:20px;border:2px solid var(--rule);background:var(--tape)}
+.prog-inner{height:100%;background:repeating-linear-gradient(90deg,var(--yellow) 0px,var(--yellow) 16px,var(--ink) 16px,var(--ink) 20px);transition:width .3s;width:0%}
+
+.stats-strip{display:none;border-bottom:2px solid var(--rule)}
+.stats-strip.show{display:grid;grid-template-columns:repeat(4,1fr)}
+.stat-cell{padding:20px 24px;border-right:2px solid var(--rule)}
+.stat-cell:last-child{border-right:none}
+.stat-lbl{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.stat-num{font-family:'Share Tech Mono',monospace;font-size:40px;line-height:1}
+.stat-num.orange{color:#fff;background:var(--orange);display:inline-block;padding:0 8px}
+.stat-num.red{color:#fff;background:var(--red);display:inline-block;padding:0 8px}
+
+.body-grid{display:none;border-bottom:2px solid var(--rule)}
+.body-grid.show{display:grid;grid-template-columns:1fr 260px}
+
+.table-panel{border-right:2px solid var(--rule)}
+.panel-header{background:var(--ink);color:var(--paper);padding:10px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid var(--rule)}
+.panel-hdr-title{font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase}
+.filter-row{display:flex;border-bottom:2px solid var(--rule)}
+.flt{padding:8px 14px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;border:none;border-right:2px solid var(--rule);background:var(--tape);color:var(--muted);cursor:pointer;transition:background .1s}
+.flt:last-child{border-right:none}
+.flt.active{background:var(--ink);color:var(--yellow)}
+.flt:hover:not(.active){background:#ddd}
+
+.tbl-wrap{max-height:420px;overflow-y:auto}
+.tbl-wrap::-webkit-scrollbar{width:6px}
+.tbl-wrap::-webkit-scrollbar-track{background:var(--tape)}
+.tbl-wrap::-webkit-scrollbar-thumb{background:var(--ink)}
+table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+th{padding:8px 12px;text-align:left;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);background:var(--tape);border-bottom:2px solid var(--rule);position:sticky;top:0;z-index:1}
+td{padding:9px 12px;border-bottom:1px solid #ccc9c0;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+tr:hover td{background:#e8e3d8}
+
+.risk-tag{display:inline-block;padding:2px 7px;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;border:2px solid}
+.risk-tag.Low{border-color:var(--green);color:var(--green)}
+.risk-tag.Medium{border-color:var(--orange);color:var(--orange)}
+.risk-tag.High{background:var(--orange);border-color:var(--orange);color:#fff}
+.risk-tag.Critical{background:var(--red);border-color:var(--red);color:#fff}
+
+.side-panel{background:var(--tape)}
+.side-section{padding:16px;border-bottom:2px solid var(--rule)}
+.side-hdr{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.mini-bar-row{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.mini-bar-label{width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--ink);font-size:10px}
+.mini-bar-track{flex:1;height:10px;border:2px solid var(--rule);background:#fff}
+.mini-bar-fill{height:100%}
+.mini-bar-val{width:24px;text-align:right;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted)}
+
+.alert-chip{display:inline-block;font-family:'Share Tech Mono',monospace;font-size:9px;padding:1px 5px;border:1px solid;margin:1px 1px 1px 0}
+.alert-chip.warn{border-color:var(--orange);color:var(--orange)}
+.alert-chip.crit{border-color:var(--red);color:var(--red);background:#fdf0f0}
+.alert-chip.none{border-color:#ccc;color:#bbb}
+
+.ai-section{display:none;border-bottom:2px solid var(--rule)}
+.ai-section.show{display:block}
+.ai-inner{padding:20px 24px;font-family:'Share Tech Mono',monospace;font-size:12px;line-height:1.8;color:var(--muted);background:#f8f5ee}
+.ai-inner strong{color:var(--ink)}
+
+.export-bar{display:none;padding:12px 18px;align-items:center;justify-content:space-between;border-bottom:2px solid var(--rule)}
+.export-bar.show{display:flex}
+.exp-btn{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;border:2px solid var(--rule);padding:7px 16px;cursor:pointer;background:transparent;display:flex;align-items:center;gap:6px;transition:all .1s}
+.exp-btn:hover{background:var(--ink);color:var(--paper)}
+.file-info{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-logo">&#9881; PredX</div>
+  <div class="tb-title">Equipment Failure Monitor</div>
+  <div class="tb-right">
+    <div class="tb-tag">Unit: MAINT-SYS/01</div>
+    <div class="tb-tag mono" id="clock">--:--:--</div>
+    <div class="tb-tag alert-tag" id="alert-tag">!! CRITICAL UNITS DETECTED</div>
+  </div>
+</div>
+
+<div class="upload-section">
+  <div class="upload-box" id="upload-zone">
+    <!-- FIX 1: Accept both .csv and .xlsx -->
+    <input type="file" id="csv-input" accept=".csv,.xlsx,.xls">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+    <div class="upload-label">&#8679; Load Data File</div>
+    <div class="upload-sub">DRAG + DROP OR CLICK &nbsp;//&nbsp; CSV OR EXCEL FORMAT &nbsp;//&nbsp; equipment_maintenance_data.xlsx</div>
+  </div>
+</div>
+
+<div class="progress-bar-wrap" id="prog-wrap">
+  <div class="prog-label mono" id="prog-text">PARSING...</div>
+  <div class="prog-outer"><div class="prog-inner" id="prog-bar"></div></div>
+</div>
+
+<div class="export-bar" id="export-bar">
+  <div class="file-info" id="file-info">NO FILE LOADED</div>
+  <button class="exp-btn" id="export-btn">&#8681; Export Report</button>
+</div>
+
+<div class="stats-strip" id="stats-strip">
+  <div class="stat-cell">
+    <div class="stat-lbl">Total Units</div>
+    <div class="stat-num" id="s-total">—</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-lbl">Healthy</div>
+    <div class="stat-num" id="s-low">—</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-lbl">High Risk</div>
+    <div class="stat-num orange" id="s-high">—</div>
+  </div>
+  <div class="stat-cell">
+    <div class="stat-lbl">Critical</div>
+    <div class="stat-num red" id="s-crit">—</div>
+  </div>
+</div>
+
+<div class="body-grid" id="body-grid">
+  <div class="table-panel">
+    <div class="panel-header">
+      <span class="panel-hdr-title">Unit Risk Register</span>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:#888" id="row-count"></span>
+    </div>
+    <div class="filter-row">
+      <button class="flt active" data-f="all">All</button>
+      <button class="flt" data-f="Medium">Medium</button>
+      <button class="flt" data-f="High">High</button>
+      <button class="flt" data-f="Critical">!! Critical</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:110px">Unit ID</th>
+            <th style="width:90px">Type</th>
+            <th style="width:80px">Prob.</th>
+            <th style="width:80px">Risk</th>
+            <th>Alerts</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="side-panel">
+    <div class="panel-header">
+      <span class="panel-hdr-title">Diagnostics</span>
+    </div>
+    <div class="side-section">
+      <div class="side-hdr">By Equipment Type</div>
+      <div id="type-chart"></div>
+    </div>
+    <div class="side-section">
+      <div class="side-hdr">Top Alert Triggers</div>
+      <div id="alert-chart"></div>
+    </div>
+  </div>
+</div>
+
+<div class="ai-section" id="ai-section">
+  <div class="panel-header">
+    <span class="panel-hdr-title">AI Maintenance Dispatch</span>
+    <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:#888">CLAUDE // ANALYSIS ENGINE</span>
+  </div>
+  <div class="ai-inner" id="ai-content">AWAITING DATA FEED...</div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────
+const ANTHROPIC_API_KEY = "";
+const BACKEND = "http://127.0.0.1:5000";
+
+let allRows = [];
+
+// ─── CLOCK ────────────────────────────────────────────────
+function tick() {
+  document.getElementById('clock').textContent = new Date().toTimeString().slice(0, 8);
+}
+tick(); setInterval(tick, 1000);
+
+// ─── PROGRESS BAR ─────────────────────────────────────────
+function setProgress(pct, text) {
+  document.getElementById('prog-bar').style.width = pct + '%';
+  document.getElementById('prog-text').textContent = text;
+}
+
+// ─── MINI CHARTS ──────────────────────────────────────────
+function renderMiniChart(id, items, colorFn) {
+  const el = document.getElementById(id);
+  const max = Math.max(...items.map(i => i.val), 1);
+  el.innerHTML = items.map(i => `
+    <div class="mini-bar-row">
+      <div class="mini-bar-label">${i.label}</div>
+      <div class="mini-bar-track">
+        <div class="mini-bar-fill" style="width:${(i.val/max*100).toFixed(0)}%;background:${colorFn(i)}"></div>
+      </div>
+      <div class="mini-bar-val">${i.val}</div>
+    </div>
+  `).join('');
+}
+
+function updateCharts(rows) {
+  // Equipment type chart — count high/critical per type
+  const typeMap = {};
+  rows.forEach(r => {
+    const t = r.Equipment_Type || '?';
+    if (!typeMap[t]) typeMap[t] = { total: 0, risk: 0 };
+    typeMap[t].total++;
+    if (r._risk === 'High' || r._risk === 'Critical') typeMap[t].risk++;
+  });
+  const typeItems = Object.entries(typeMap)
+    .map(([k, v]) => ({ label: k, val: v.risk, ratio: v.risk / Math.max(v.total, 1) }))
+    .sort((a, b) => b.val - a.val).slice(0, 5);
+  renderMiniChart('type-chart', typeItems, i => i.ratio > 0.5 ? '#d62b2b' : i.ratio > 0.25 ? '#e8621a' : '#1a1a18');
+
+  // Alert trigger chart
+  const ac = {};
+  rows.forEach(r => (r._alerts || []).forEach(a => {
+    const k = a.msg.split('=')[0];
+    ac[k] = (ac[k] || 0) + 1;
+  }));
+  const alertItems = Object.entries(ac)
+    .map(([k, v]) => ({ label: k, val: v }))
+    .sort((a, b) => b.val - a.val).slice(0, 5);
+  if (!alertItems.length) alertItems.push({ label: 'No alerts', val: 0 });
+  renderMiniChart('alert-chart', alertItems, i =>
+    i.val > rows.length * 0.3 ? '#d62b2b' : i.val > rows.length * 0.1 ? '#e8621a' : '#1a1a18'
+  );
+}
+
+// ─── TABLE ────────────────────────────────────────────────
+function renderTable(rows) {
+  const tbody = document.getElementById('tbody');
+  document.getElementById('row-count').textContent = rows.length + ' RECORDS';
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;font-family:'Share Tech Mono',monospace;font-size:12px;color:#aaa">-- NO RECORDS MATCH FILTER --</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const id   = r.Equipment_ID || '—';
+    const type = (r.Equipment_Type || '—').substring(0, 10);
+    const prob = (r._prob * 100).toFixed(1) + '%';
+    const chips = (r._alerts || []).length
+      ? r._alerts.map(a => `<span class="alert-chip ${a.level}">${a.msg}</span>`).join('')
+      : `<span class="alert-chip none">OK</span>`;
+    return `<tr>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:11px">${id}</td>
+      <td style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">${type}</td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:13px">${prob}</td>
+      <td><span class="risk-tag ${r._risk}">${r._risk}</span></td>
+      <td>${chips}</td>
+    </tr>`;
+  }).join('');
+}
+
+function applyFilter(f) {
+  document.querySelectorAll('.flt').forEach(b => b.classList.toggle('active', b.dataset.f === f));
+  const filtered = f === 'all' ? allRows : allRows.filter(r => r._risk === f);
+  renderTable(filtered);
+}
+
+// ─── NORMALIZE BACKEND RESPONSE ───────────────────────────
+// FIX 3: Backend returns failure_probability / risk_level / alerts
+// Map them to the _prob / _risk / _alerts the UI expects
+function normalizeRow(r) {
+  return {
+    ...r,
+    _prob:   r._prob   ?? r.failure_probability ?? 0,
+    _risk:   r._risk   ?? r.risk_level          ?? 'Low',
+    _alerts: r._alerts ?? (r.alerts || []).map(a => ({
+      level: a.level === 'critical' ? 'crit' : 'warn',
+      msg:   a.msg
+    }))
+  };
+}
+
+// ─── AI SUMMARY ───────────────────────────────────────────
+async function callAI(rows) {
+  const sec = document.getElementById('ai-section');
+  const content = document.getElementById('ai-content');
+  sec.classList.add('show');
+
+  if (!ANTHROPIC_API_KEY) {
+    content.innerHTML = 'ANALYSIS ENGINE OFFLINE // SET ANTHROPIC_API_KEY IN THE SCRIPT TO ENABLE';
+    return;
+  }
+
+  const crit = rows.filter(r => r._risk === 'Critical').slice(0, 5);
+  const ac = {};
+  rows.forEach(r => (r._alerts || []).forEach(a => {
+    const k = a.msg.split('=')[0]; ac[k] = (ac[k] || 0) + 1;
+  }));
+
+  const prompt = `You are a predictive maintenance engineer writing a terse operational dispatch. Data:
+- Fleet: ${rows.length} units | Critical: ${rows.filter(r=>r._risk==='Critical').length} | High: ${rows.filter(r=>r._risk==='High').length} | Medium: ${rows.filter(r=>r._risk==='Medium').length} | Low: ${rows.filter(r=>r._risk==='Low').length}
+- Top critical: ${crit.map(r=>`${r.Equipment_ID||'?'} (${r.Equipment_Type||'?'}, ${(r._prob*100).toFixed(0)}%)`).join(', ')||'None'}
+- Dominant alerts: ${Object.entries(ac).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>`${k}:${v}`).join(', ')||'None'}
+Write 2-3 short paragraphs: fleet status, immediate action items, failure pattern. Be direct and terse. Use <strong> for equipment IDs and key metrics only.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.map(b => b.text || '').join('') || 'ANALYSIS UNAVAILABLE.';
+    content.innerHTML = text.replace(/\n\n/g, '<br><br>');
+  } catch (e) {
+    content.innerHTML = 'ANALYSIS ENGINE OFFLINE // CHECK API KEY AND NETWORK CONNECTION';
+  }
+}
+
+// ─── EXPORT CSV ───────────────────────────────────────────
+function exportCSV() {
+  const headers = ['Equipment_ID', 'Equipment_Type', 'Failure_Probability', 'Risk_Level', 'Alerts'];
+  const rows = allRows.map(r => [
+    r.Equipment_ID || '',
+    r.Equipment_Type || '',
+    (r._prob * 100).toFixed(2) + '%',
+    r._risk,
+    (r._alerts || []).map(a => a.msg).join(' | ')
+  ]);
+  const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'risk_report.csv';
+  a.click();
+}
+
+// ─── FILE HANDLER ─────────────────────────────────────────
+async function handleFile(file) {
+  document.getElementById('upload-zone').style.display = 'none';
+  document.getElementById('prog-wrap').classList.add('active');
+  document.getElementById('stats-strip').classList.remove('show');
+  document.getElementById('body-grid').classList.remove('show');
+  document.getElementById('export-bar').classList.remove('show');
+  document.getElementById('ai-section').classList.remove('show');
+  document.getElementById('alert-tag').classList.remove('show');
+
+  setProgress(10, 'READING FILE BUFFER...'); await new Promise(r => setTimeout(r, 200));
+
+  // FIX 2: Send file directly via FormData to /predict-file
+  // DO NOT read .xlsx as text — it's binary. Let the backend parse it.
+  setProgress(40, 'UPLOADING TO PREDICTION ENGINE...'); await new Promise(r => setTimeout(r, 250));
+
+  let scored = [];
+  try {
+    const formData = new FormData();
+    formData.append('file', file);  // key MUST be 'file' — matches Flask request.files["file"]
+
+    // NOTE: Do NOT set Content-Type header manually.
+    // Browser sets it automatically with the correct multipart boundary.
+    const predResp = await fetch(`${BACKEND}/predict-file`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!predResp.ok) {
+      const errData = await predResp.json().catch(() => ({ error: predResp.statusText }));
+      throw new Error(`Backend error ${predResp.status}: ${JSON.stringify(errData, null, 2)}`);
+    }
+
+    const predData = await predResp.json();
+
+    // FIX 3: Normalize field names from backend response to what the UI uses
+    scored = (predData.rows || []).map(normalizeRow);
+
+  } catch (e) {
+    console.error(e);
+    alert('Prediction backend failed. Check console for details.\n\n' + e.message);
+    document.getElementById('prog-wrap').classList.remove('active');
+    document.getElementById('upload-zone').style.display = 'block';
+    return;
+  }
+
+  // Sort by probability descending
+  scored.sort((a, b) => b._prob - a._prob);
+  allRows = scored;
+
+  setProgress(85, 'RENDERING DISPLAY...'); await new Promise(r => setTimeout(r, 200));
+
+  document.getElementById('s-total').textContent = scored.length;
+  document.getElementById('s-low').textContent   = scored.filter(r => r._risk === 'Low' || r._risk === 'Medium').length;
+  document.getElementById('s-high').textContent  = scored.filter(r => r._risk === 'High').length;
+  document.getElementById('s-crit').textContent  = scored.filter(r => r._risk === 'Critical').length;
+
+  if (scored.filter(r => r._risk === 'Critical').length > 0) {
+    document.getElementById('alert-tag').classList.add('show');
+  }
+
+  updateCharts(scored);
+  applyFilter('all');
+
+  document.getElementById('file-info').textContent = `FILE: ${file.name} // ${scored.length} RECORDS LOADED`;
+
+  setProgress(100, 'READY');
+  await new Promise(r => setTimeout(r, 300));
+  document.getElementById('prog-wrap').classList.remove('active');
+  document.getElementById('stats-strip').classList.add('show');
+  document.getElementById('body-grid').classList.add('show');
+  document.getElementById('export-bar').classList.add('show');
+
+  callAI(scored);
+}
+
+// ─── EVENT LISTENERS ──────────────────────────────────────
+const zone = document.getElementById('upload-zone');
+const inp  = document.getElementById('csv-input');
+
+zone.addEventListener('click', () => inp.click());
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+inp.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+document.querySelectorAll('.flt').forEach(b => b.addEventListener('click', () => applyFilter(b.dataset.f)));
+document.getElementById('export-btn').addEventListener('click', exportCSV);
+</script>
+</body>
+</html>
